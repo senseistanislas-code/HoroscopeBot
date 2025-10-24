@@ -11,17 +11,17 @@ from flask import Flask
 from threading import Thread
 
 # -------------------
-# Chargement variables d'environnement
+# Chargement des variables d'environnement
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # Salon pour envoi automatique
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # -------------------
-# Keep alive pour Replit
+# Keep alive pour Replit / VPS
 app = Flask('')
 
 @app.route('/')
@@ -34,6 +34,8 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
+keep_alive()
 
 # -------------------
 # Signes FR -> EN pour l'API
@@ -162,50 +164,8 @@ def generer_horoscope_stylé(signe_fr):
 # Events et slash commands
 @bot.event
 async def on_ready():
-    # -------------------
-    # Gestion des erreurs globales
-    @bot.event
-    async def on_error(event, *args, **kwargs):
-        owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
-        error_message = f"⚠️ Une erreur est survenue dans l’événement : `{event}`"
-
-        try:
-            owner = await bot.fetch_user(owner_id)
-            if owner:
-                await owner.send(error_message)
-        except Exception as e:
-            print(f"Impossible d’envoyer le DM d’erreur : {e}")
-
-    @bot.event
-    async def on_command_error(ctx, error):
-        owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
-        try:
-            owner = await bot.fetch_user(owner_id)
-            if owner:
-                await owner.send(f"🚨 Erreur détectée dans une commande : {error}")
-        except Exception as e:
-            print(f"Impossible d’envoyer le DM d’erreur de commande : {e}")
-
+    await bot.tree.sync()
     print(f"✅ Connecté en tant que {bot.user}")
-
-    # Envoi dans le salon du serveur (optionnel)
-    channel = bot.get_channel(CHANNEL_ID)
-    if channel:
-        try:
-            await channel.send("🤖 Le bot Horoscope vient de redémarrer et est prêt à te servir ! 🔮")
-        except Exception as e:
-            print(f"Erreur lors de l'envoi du message de redémarrage dans le salon : {e}")
-
-    # Envoi en DM à toi (le propriétaire)
-    owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
-    try:
-        owner = await bot.fetch_user(owner_id)
-        if owner:
-            await owner.send("🌅 Le bot Horoscope vient de redémarrer et est maintenant en ligne ✅")
-    except Exception as e:
-        print(f"Erreur lors de l'envoi du DM de redémarrage : {e}")
-
-    # Démarre la tâche quotidienne si elle n’est pas encore lancée
     if not daily_horoscope.is_running():
         daily_horoscope.start()
 
@@ -246,23 +206,13 @@ async def desabonner(interaction: discord.Interaction):
 # Envoi automatique 8h
 @tasks.loop(minutes=1)
 async def daily_horoscope():
-    now = datetime.datetime.now().strftime("%H:%M")
-    if now == "08:00":
-        channel = bot.get_channel(CHANNEL_ID)
-        if channel:
-            for signe in SIGNS_FR_EN.keys():
-                msg = generer_horoscope_stylé(signe)
-                await channel.send(msg)
-        for user_id, signe in abonnes.items():
-            user = await bot.fetch_user(int(user_id))
-            if user:
-                msg = generer_horoscope_stylé(signe)
-                try:
-                    await user.send(f"💌 Voici ton horoscope :\n{msg}")
-                except:
-                    print(f"Impossible d'envoyer un DM à {user.name}")
+    now = datetime.datetime.now()
+    if now.hour == 8 and now.minute == 0:
+        for uid, signe in abonnes.items():
+            user = await bot.fetch_user(int(uid))
+            msg = generer_horoscope_stylé(signe)
+            await user.send(msg)
 
 # -------------------
-from keep_alive import keep_alive
-keep_alive()
+# Lancement du bot
 bot.run(TOKEN)
