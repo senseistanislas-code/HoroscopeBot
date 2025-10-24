@@ -1,27 +1,27 @@
-import discord
-from discord import app_commands
-from discord.ext import commands, tasks
+import nextcord
+from nextcord import app_commands
+from nextcord.ext import commands, tasks
 from dotenv import load_dotenv
 import os
 import datetime
 import json
 import random
 import requests
-from flask import Flask
 from threading import Thread
+from flask import Flask
 
 # -------------------
 # Chargement variables d'environnement
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # Salon pour envoi automatique
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
-intents = discord.Intents.default()
+intents = nextcord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # -------------------
-# Keep alive pour Replit
+# Keep alive pour Replit (si tu utilises Replit)
 app = Flask('')
 
 @app.route('/')
@@ -34,6 +34,8 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
+keep_alive()
 
 # -------------------
 # Signes FR -> EN pour l'API
@@ -162,50 +164,8 @@ def generer_horoscope_stylé(signe_fr):
 # Events et slash commands
 @bot.event
 async def on_ready():
-    # -------------------
-    # Gestion des erreurs globales
-    @bot.event
-    async def on_error(event, *args, **kwargs):
-        owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
-        error_message = f"⚠️ Une erreur est survenue dans l’événement : `{event}`"
-
-        try:
-            owner = await bot.fetch_user(owner_id)
-            if owner:
-                await owner.send(error_message)
-        except Exception as e:
-            print(f"Impossible d’envoyer le DM d’erreur : {e}")
-
-    @bot.event
-    async def on_command_error(ctx, error):
-        owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
-        try:
-            owner = await bot.fetch_user(owner_id)
-            if owner:
-                await owner.send(f"🚨 Erreur détectée dans une commande : {error}")
-        except Exception as e:
-            print(f"Impossible d’envoyer le DM d’erreur de commande : {e}")
-
+    await bot.tree.sync()
     print(f"✅ Connecté en tant que {bot.user}")
-
-    # Envoi dans le salon du serveur (optionnel)
-    channel = bot.get_channel(CHANNEL_ID)
-    if channel:
-        try:
-            await channel.send("🤖 Le bot Horoscope vient de redémarrer et est prêt à te servir ! 🔮")
-        except Exception as e:
-            print(f"Erreur lors de l'envoi du message de redémarrage dans le salon : {e}")
-
-    # Envoi en DM à toi (le propriétaire)
-    owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
-    try:
-        owner = await bot.fetch_user(owner_id)
-        if owner:
-            await owner.send("🌅 Le bot Horoscope vient de redémarrer et est maintenant en ligne ✅")
-    except Exception as e:
-        print(f"Erreur lors de l'envoi du DM de redémarrage : {e}")
-
-    # Démarre la tâche quotidienne si elle n’est pas encore lancée
     if not daily_horoscope.is_running():
         daily_horoscope.start()
 
@@ -213,7 +173,7 @@ async def on_ready():
 # Slash commands
 @bot.tree.command(name="horoscope", description="Afficher l'horoscope du jour pour un signe")
 @app_commands.describe(signe="Choisir votre signe astrologique")
-async def horoscope(interaction: discord.Interaction, signe: str):
+async def horoscope(interaction: nextcord.Interaction, signe: str):
     signe = signe.lower()
     if signe not in SIGNS_FR_EN:
         await interaction.response.send_message("❌ Signe inconnu.")
@@ -223,7 +183,7 @@ async def horoscope(interaction: discord.Interaction, signe: str):
 
 @bot.tree.command(name="abonner", description="Recevoir ton horoscope en DM chaque matin")
 @app_commands.describe(signe="Choisir votre signe astrologique")
-async def abonner(interaction: discord.Interaction, signe: str):
+async def abonner(interaction: nextcord.Interaction, signe: str):
     signe = signe.lower()
     if signe not in SIGNS_FR_EN:
         await interaction.response.send_message("❌ Signe inconnu.")
@@ -233,7 +193,7 @@ async def abonner(interaction: discord.Interaction, signe: str):
         await interaction.response.send_message(f"✨ Tu es abonné à **{signe.capitalize()}** !")
 
 @bot.tree.command(name="désabonner", description="Arrêter de recevoir l'horoscope")
-async def desabonner(interaction: discord.Interaction):
+async def desabonner(interaction: nextcord.Interaction):
     uid = str(interaction.user.id)
     if uid in abonnes:
         del abonnes[uid]
@@ -263,6 +223,4 @@ async def daily_horoscope():
                     print(f"Impossible d'envoyer un DM à {user.name}")
 
 # -------------------
-from keep_alive import keep_alive
-keep_alive()
 bot.run(TOKEN)
