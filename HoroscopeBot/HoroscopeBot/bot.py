@@ -1,0 +1,354 @@
+import discord
+from discord import app_commands
+from discord.ext import commands, tasks
+from dotenv import load_dotenv
+import os
+import datetime
+import json
+import random
+import requests
+from flask import Flask
+from threading import Thread
+
+# -------------------
+# Chargement variables d'environnement
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # Salon pour envoi automatique
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# -------------------
+# Keep alive pour Replit
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot actif ✅"
+
+def run():
+    app.run(host="0.0.0.0", port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# -------------------
+# Signes FR -> EN pour l'API
+SIGNS_FR_EN = {
+    "bélier": "aries",
+    "taureau": "taurus",
+    "gémeaux": "gemini",
+    "cancer": "cancer",
+    "lion": "leo",
+    "vierge": "virgo",
+    "balance": "libra",
+    "scorpion": "scorpio",
+    "sagittaire": "sagittarius",
+    "capricorne": "capricorn",
+    "verseau": "aquarius",
+    "poissons": "pisces"
+}
+
+# -------------------
+# Abonnés
+ABONNES_FILE = "abonnes.json"
+
+def charger_abonnes():
+    if os.path.exists(ABONNES_FILE):
+        with open(ABONNES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def sauvegarder_abonnes(data):
+    with open(ABONNES_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+abonnes = charger_abonnes()
+
+# -------------------
+# Générer horoscope stylé
+def generer_horoscope_stylé(signe_fr):
+    try:
+        signe_en = SIGNS_FR_EN.get(signe_fr.lower())
+        res = requests.get(f"https://ohmanda.com/api/horoscope/{signe_en}")
+        texte_api = res.json().get("horoscope", "") if res.status_code == 200 else ""
+
+        energies = ["Haute", "Stable", "Faible", "Changeante", "Équilibrée", "Intense", "Douce", "Positive", "Nerveuse", "Apaisée"]
+
+        amours = [
+            "Une belle surprise t’attend aujourd’hui 💕",
+            "Un regard pourrait tout changer 💫",
+            "Ton cœur vibre plus fort que d’habitude ❤️",
+            "Ne cherche pas à tout contrôler, laisse la magie opérer ✨",
+            "Une discussion sincère renforcera ton lien 💬",
+            "L’amour est plus proche que tu ne le crois 🌹",
+            "Tu attires naturellement les bonnes personnes 🌟",
+            "Une ancienne flamme pourrait réapparaître 🔥",
+            "Évite les malentendus : parle avec ton cœur 💖",
+            "Aujourd’hui, fais confiance à ton intuition amoureuse 💞",
+            "La tendresse te fera du bien, donne-en autant que tu en veux 🤗",
+            "Un message inattendu pourrait te faire sourire 📩",
+            "Si tu es en couple, un beau moment de complicité t’attend 💍",
+            "Célibataire ? Ouvre les yeux, une belle rencontre est possible 💘",
+            "Ne cours pas après l’amour, il te rattrapera 💌",
+            "Un geste sincère va te toucher profondément 💓",
+            "Apprends à aimer sans attentes, juste pour le plaisir d’aimer 🌈",
+            "Ne te ferme pas à la nouveauté sentimentale 💭",
+            "Laisse tomber les rancunes, fais place à la paix intérieure 🕊️",
+            "L’amour te guide vers un chemin plus doux aujourd’hui 🌷"
+        ]
+
+        travails = [
+            "Ta persévérance sera récompensée 💼",
+            "Une opportunité se profile, reste attentif 👀",
+            "Ton sérieux inspire confiance à tes collègues 🤝",
+            "Un projet avance plus vite que prévu 🚀",
+            "Prends les devants, ton audace paiera 🔥",
+            "Reste calme face à la pression, tu gères 💪",
+            "Ton travail parle pour toi, même en silence 🎯",
+            "Une petite victoire va booster ta motivation 🏆",
+            "Sois créatif, une idée peut tout changer 💡",
+            "Ne néglige pas les détails, ils feront la différence 📋",
+            "Ton esprit d’équipe sera apprécié aujourd’hui 🤗",
+            "Un échange pourrait t’ouvrir une nouvelle porte 🔑",
+            "Fais confiance à ton instinct professionnel 🌟",
+            "Garde la tête froide, tout rentrera dans l’ordre 🧊",
+            "Ta rigueur va impressionner quelqu’un d’important 👔",
+            "Ne laisse pas la fatigue prendre le dessus 😴",
+            "Apprends à déléguer, tu n’as pas à tout porter seul 🧠",
+            "Ton courage face aux défis sera remarqué 🌄",
+            "Un collègue pourrait devenir un véritable allié 🤝",
+            "La réussite n’est pas loin, continue sur ta lancée 🏁"
+        ]
+
+        conseils = [
+            "Ne doute pas de toi, avance avec confiance 🌟",
+            "Laisse le passé derrière toi et avance 🚀",
+            "Suis ton instinct, il est juste aujourd’hui 💫",
+            "Prends du temps pour toi, tu le mérites ☕",
+            "Une pause t’aidera à mieux repartir 🌿",
+            "Écoute ton cœur avant ton mental 💭",
+            "Accepte ce que tu ne peux pas changer 🍃",
+            "Fais une action aujourd’hui qui te rend fier 🔥",
+            "Apprends à dire non quand c’est nécessaire 🚫",
+            "Ton sourire est ta meilleure arme 😄",
+            "Sois indulgent envers toi-même 💖",
+            "Ne te compare à personne, ton chemin est unique 🌈",
+            "Écris ce que tu ressens, cela t’apaisera ✍️",
+            "Garde ton calme, la clarté reviendra ☀️",
+            "Une bonne nouvelle arrive, reste patient 🎁",
+            "Laisse parler ton intuition, elle ne te trompe pas 🔮",
+            "La gratitude attire encore plus de positif 🙏",
+            "Fais confiance à la vie, elle sait où te conduire 🌊",
+            "Ton énergie influence ton entourage, rayonne ✨",
+            "N’oublie pas : le bonheur est souvent dans les petites choses 🌸"
+        ]
+
+        message = (
+            f"**Horoscope du jour – {signe_fr.capitalize()} ♈**\n"
+            f"> 💫 *Énergie :* {random.choice(energies)}\n"
+            f"> ❤️ *Amour :* {random.choice(amours)}\n"
+            f"> 💼 *Travail :* {random.choice(travails)}\n"
+            f"> 🌟 *Conseil du jour :* {random.choice(conseils)}"
+        )
+        return message
+    except Exception as e:
+        return f"Erreur : {e}"
+
+# -------------------
+# Events et slash commands
+@bot.event
+async def on_ready():
+    # -------------------
+    # Gestion des erreurs globales
+    @bot.event
+    async def on_error(event, *args, **kwargs):
+        owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
+        error_message = f"⚠️ Une erreur est survenue dans l’événement : `{event}`"
+
+        try:
+            owner = await bot.fetch_user(owner_id)
+            if owner:
+                await owner.send(error_message)
+        except Exception as e:
+            print(f"Impossible d’envoyer le DM d’erreur : {e}")
+
+    @bot.event
+    async def on_command_error(ctx, error):
+        owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
+        try:
+            owner = await bot.fetch_user(owner_id)
+            if owner:
+                await owner.send(f"🚨 Erreur détectée dans une commande : {error}")
+        except Exception as e:
+            print(f"Impossible d’envoyer le DM d’erreur de commande : {e}")
+
+    print(f"✅ Connecté en tant que {bot.user}")
+
+    # Envoi dans le salon du serveur (optionnel)
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel:
+        try:
+            await channel.send("🤖 Le bot Horoscope vient de redémarrer et est prêt à te servir ! 🔮")
+        except Exception as e:
+            print(f"Erreur lors de l'envoi du message de redémarrage dans le salon : {e}")
+
+    # Envoi en DM à toi (le propriétaire)
+    owner_id = 150389305158795264  # 🔹 remplace par TON ID Discord
+    try:
+        owner = await bot.fetch_user(owner_id)
+        if owner:
+            await owner.send("🌅 Le bot Horoscope vient de redémarrer et est maintenant en ligne ✅")
+    except Exception as e:
+        print(f"Erreur lors de l'envoi du DM de redémarrage : {e}")
+
+    # Démarre la tâche quotidienne si elle n’est pas encore lancée
+    if not daily_horoscope.is_running():
+        daily_horoscope.start()
+
+# -------------------
+# Slash commands
+@bot.tree.command(name="horoscope", description="Afficher l'horoscope du jour pour un signe")
+@app_commands.describe(signe="Choisir votre signe astrologique")
+async def horoscope(interaction: discord.Interaction, signe: str):
+    signe = signe.lower()
+    if signe not in SIGNS_FR_EN:
+        await interaction.response.send_message("❌ Signe inconnu.")
+    else:
+        msg = generer_horoscope_stylé(signe)
+        await interaction.response.send_message(msg)
+
+@bot.tree.command(name="abonner", description="Recevoir ton horoscope en DM chaque matin")
+@app_commands.describe(signe="Choisir votre signe astrologique")
+async def abonner(interaction: discord.Interaction, signe: str):
+    signe = signe.lower()
+    if signe not in SIGNS_FR_EN:
+        await interaction.response.send_message("❌ Signe inconnu.")
+    else:
+        abonnes[str(interaction.user.id)] = signe
+        sauvegarder_abonnes(abonnes)
+        await interaction.response.send_message(f"✨ Tu es abonné à **{signe.capitalize()}** !")
+
+@bot.tree.command(name="désabonner", description="Arrêter de recevoir l'horoscope")
+async def desabonner(interaction: discord.Interaction):
+    uid = str(interaction.user.id)
+    if uid in abonnes:
+        del abonnes[uid]
+        sauvegarder_abonnes(abonnes)
+        await interaction.response.send_message("🚫 Tu es désabonné.")
+    else:
+        await interaction.response.send_message("Tu n’étais pas abonné 😉")
+
+# -------------------
+# Envoi automatique 8h
+@tasks.loop(minutes=1)
+async def daily_horoscope():
+    now = datetime.datetime.now().strftime("%H:%M")
+    if now == "08:00":
+        channel = bot.get_channel(CHANNEL_ID)
+        if channel:
+            for signe in SIGNS_FR_EN.keys():
+                msg = generer_horoscope_stylé(signe)
+                await channel.send(msg)
+        for user_id, signe in abonnes.items():
+            user = await bot.fetch_user(int(user_id))
+            if user:
+                msg = generer_horoscope_stylé(signe)
+                try:
+                    await user.send(f"💌 Voici ton horoscope :\n{msg}")
+                except:
+                    print(f"Impossible d'envoyer un DM à {user.name}")
+
+# -------------------
+from keep_alive import keep_alive
+keep_alive()
+
+import io
+import os
+import json
+import datetime
+from zoneinfo import ZoneInfo
+from nextcord.ext import tasks
+from PIL import Image, ImageDraw, ImageFont
+
+# ===== CONFIG =====
+TEMPLATE_PATH = "assets/template.png"
+HOROSCOPE_JSON = "assets/horoscopes.json"
+FONT_TITLE = "assets/fonts/PlayfairDisplay-Bold.ttf"
+FONT_TEXT = "assets/fonts/Inter-Regular.ttf"
+CHANNEL_ID = 1396583334318178496  # <-- remplace par ton salon Discord
+TIMEZONE = "Europe/Paris"
+POST_HOUR = 8
+# ===================
+
+SIGNS_ORDER = [
+    "Bélier", "Taureau", "Gémeaux", "Cancer",
+    "Lion", "Vierge", "Balance", "Scorpion",
+    "Sagittaire", "Capricorne", "Verseau", "Poissons"
+]
+
+def load_horoscopes():
+    with open(HOROSCOPE_JSON, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def render_horoscope_image(horoscopes: dict):
+    img = Image.open(TEMPLATE_PATH).convert("RGBA")
+    W, H = img.size
+    draw = ImageDraw.Draw(img)
+
+    try:
+        font_title = ImageFont.truetype(FONT_TITLE, int(W * 0.035))
+    except:
+        font_title = ImageFont.load_default()
+    try:
+        font_text = ImageFont.truetype(FONT_TEXT, int(W * 0.023))
+    except:
+        font_text = ImageFont.load_default()
+
+    # Date
+    now = datetime.datetime.now(ZoneInfo(TIMEZONE))
+    date_str = now.strftime("%-d %b. %Y")
+    date_font = font_text
+    date_w, date_h = draw.textsize(date_str, font=date_font)
+    draw.text(((W - date_w) / 2, H * 0.12), date_str, font=date_font, fill=(210, 198, 230, 255))
+
+    left_x, right_x = int(W * 0.06), int(W * 0.53)
+    col_width, start_y, gap_y = int(W * 0.4), int(H * 0.20), int(H * 0.06)
+
+    for i, sign in enumerate(SIGNS_ORDER):
+        col_x = left_x if i < 6 else right_x
+        y = start_y + (i % 6) * gap_y
+        draw.text((col_x, y), sign, font=font_title, fill=(240, 230, 250, 255))
+        text = horoscopes.get(sign, "")
+        draw.text((col_x, y + H * 0.03), text, font=font_text, fill=(220, 210, 230, 255))
+
+    bio = io.BytesIO()
+    img.save(bio, "PNG")
+    bio.seek(0)
+    return bio
+
+@tasks.loop(time=datetime.time(hour=POST_HOUR, tzinfo=ZoneInfo(TIMEZONE)))
+async def post_daily_horoscope():
+    await bot.wait_until_ready()
+    try:
+        horoscopes = load_horoscopes()
+        img_bytes = render_horoscope_image(horoscopes)
+        channel = bot.get_channel(CHANNEL_ID)
+        if channel:
+            await channel.send(file=nextcord.File(img_bytes, filename="horoscope_du_jour.png"))
+            print(f"✅ Horoscope envoyé ({datetime.datetime.now(ZoneInfo(TIMEZONE)).date()})")
+        else:
+            print("⚠️ Canal introuvable, vérifie CHANNEL_ID")
+    except Exception as e:
+        print("❌ Erreur Horoscope :", e)
+
+@bot.event
+async def on_ready():
+    print(f"{bot.user} est connecté !")
+    if not post_daily_horoscope.is_running():
+        post_daily_horoscope.start()
+
+bot.run(TOKEN)
